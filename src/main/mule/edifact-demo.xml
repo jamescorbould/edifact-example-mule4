@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:edifact="http://www.mulesoft.org/schema/mule/edifact" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:x12="http://www.mulesoft.org/schema/mule/x12" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/x12 http://www.mulesoft.org/schema/mule/x12/current/mule-x12.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/edifact http://www.mulesoft.org/schema/mule/edifact/current/mule-edifact.xsd">
+
+	<configuration-properties doc:name="Configuration properties" doc:id="32ffebdf-03c0-40ec-81c1-0d93dcdc365c" file="mule-properties.yaml" />
+	<edifact:config name="EDIFACT_EDI_Config" doc:name="EDIFACT EDI Config" doc:id="d519c719-4db6-4a8f-aab7-c250fd52d75b" allowUnknownSegments="true" enforceLengthLimits="false" enforceValueRepeats="false" enforceReadCharacters="false" enforceSegmentOrder="false" enforceSegmentRepeats="false">
+		<edifact:schemas >
+			<edifact:schema value="${file.base}/src/main/resources/schemas/ORDERS.esl" />
+		</edifact:schemas>
+	</edifact:config>
+	<flow name="file-inbound" doc:id="26c2492a-a044-46c2-87de-4f8bc989c10b" >
+		<file:listener doc:name="On New or Updated File" doc:id="12537eb6-c336-41a7-9839-a5ded6b7fcfb" directory="${file.base}/src/main/resources/in" moveToDirectory="${file.base}/src/main/resources/processed">
+			<scheduling-strategy>
+				<fixed-frequency frequency="60" timeUnit="SECONDS" />
+			</scheduling-strategy>
+		</file:listener>
+		<flow-ref doc:name="Flow Reference" doc:id="1819dcd4-d3df-48a1-b9d1-023dfa68ca78" name="process-ORDERS-message"/>
+	</flow>
+	<flow name="process-ORDERS-message" doc:id="25a99c03-f443-46d6-944a-f760da4816be" >
+		<edifact:read doc:name="Read" doc:id="c4d4b3f0-96ed-42cb-a8d9-8363fd8d6d33" config-ref="EDIFACT_EDI_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="f9d660db-6552-4578-be6e-c091ee08232d">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="e386f823-bf6d-4f04-b91c-eb98235d1adb" message="#[payload]" />
+		<file:write doc:name="Write" doc:id="7cee392d-8440-4c4b-940b-7da292c58694" path="${file.base}/src/main/resources/out/output.json" />
+	</flow>
+</mule>
