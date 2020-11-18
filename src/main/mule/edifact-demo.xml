@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:edifact="http://www.mulesoft.org/schema/mule/edifact" xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp"
-	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-	xmlns:x12="http://www.mulesoft.org/schema/mule/x12" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:ftp="http://www.mulesoft.org/schema/mule/ftp" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+	xmlns:edifact="http://www.mulesoft.org/schema/mule/edifact"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:x12="http://www.mulesoft.org/schema/mule/x12" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/x12 http://www.mulesoft.org/schema/mule/x12/current/mule-x12.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
-http://www.mulesoft.org/schema/mule/edifact http://www.mulesoft.org/schema/mule/edifact/current/mule-edifact.xsd">
+http://www.mulesoft.org/schema/mule/edifact http://www.mulesoft.org/schema/mule/edifact/current/mule-edifact.xsd
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/ftp http://www.mulesoft.org/schema/mule/ftp/current/mule-ftp.xsd">
 
 	<configuration-properties doc:name="Configuration properties" doc:id="32ffebdf-03c0-40ec-81c1-0d93dcdc365c" file="mule-properties.yaml" />
 	<edifact:config name="EDIFACT_EDI_Config" doc:name="EDIFACT EDI Config" doc:id="d519c719-4db6-4a8f-aab7-c250fd52d75b" allowUnknownSegments="true" enforceLengthLimits="false" enforceValueRepeats="false" enforceReadCharacters="false" enforceSegmentOrder="false" enforceSegmentRepeats="false">
@@ -15,13 +17,17 @@ http://www.mulesoft.org/schema/mule/edifact http://www.mulesoft.org/schema/mule/
 			<edifact:schema value="${file.base}/src/main/resources/schemas/ORDERS.esl" />
 		</edifact:schemas>
 	</edifact:config>
-	<flow name="file-inbound" doc:id="26c2492a-a044-46c2-87de-4f8bc989c10b" >
-		<file:listener doc:name="On New or Updated File" doc:id="12537eb6-c336-41a7-9839-a5ded6b7fcfb" directory="${file.base}/src/main/resources/in" moveToDirectory="${file.base}/src/main/resources/processed">
-			<scheduling-strategy>
-				<fixed-frequency frequency="60" timeUnit="SECONDS" />
+	<ftp:config name="Cin7_FTP_Config" doc:name="FTP Config" doc:id="97a3bcea-ff7d-4267-85ba-cf6b5e85a5d2" >
+		<ftp:connection host="ftp.cin7.com"/>
+	</ftp:config>
+	<flow name="ftp-file-inbound" doc:id="51367112-9bd7-4bf3-8635-897e6439de3e" initialState="started">
+		<ftp:listener doc:name="On New or Updated File" doc:id="8930dcc0-6286-485b-8694-347af12b2963" timeBetweenSizeCheckUnit="NANOSECONDS" directory="/JamesC/Out" recursive="false" config-ref="Cin7_FTP_Config">
+			<scheduling-strategy >
+				<fixed-frequency />
 			</scheduling-strategy>
-		</file:listener>
-		<flow-ref doc:name="Flow Reference" doc:id="1819dcd4-d3df-48a1-b9d1-023dfa68ca78" name="process-ORDERS-message"/>
+		</ftp:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="e45e8be3-6bea-4772-8fed-b89199a6540d" />
+		<flow-ref doc:name="Flow Reference" doc:id="efa14d75-752d-40e3-86a3-7485e1e32922" name="process-ORDERS-message"/>
 	</flow>
 	<flow name="process-ORDERS-message" doc:id="25a99c03-f443-46d6-944a-f760da4816be" >
 		<edifact:read doc:name="Read" doc:id="c4d4b3f0-96ed-42cb-a8d9-8363fd8d6d33" config-ref="EDIFACT_EDI_Config"/>
@@ -34,6 +40,10 @@ payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 		<logger level="INFO" doc:name="Logger" doc:id="e386f823-bf6d-4f04-b91c-eb98235d1adb" message="#[payload]" />
-		<file:write doc:name="Write" doc:id="7cee392d-8440-4c4b-940b-7da292c58694" path="${file.base}/src/main/resources/out/output.json" />
+		<ftp:write doc:name="Write" doc:id="df48d8c2-0e7f-4a14-8f25-635c9c04c833" config-ref="Cin7_FTP_Config" path="/JamesC/In/output.json"/>
+		<flow-ref doc:name="Flow Reference" doc:id="8bd9c64f-1f90-4632-868e-1cdaa073ff3d" name="archive-messages"/>
+	</flow>
+	<flow name="archive-messages" doc:id="27e2a263-c22b-47bf-b7d3-bd587edcff35" initialState="started">
+		<ftp:move doc:name="Move" doc:id="8c605631-d675-4f70-8cfd-68721a05642c" config-ref="Cin7_FTP_Config" sourcePath="/JamesC/Out/ORDERS.edifact" targetPath="/JamesC/Archive" overwrite="true" />
 	</flow>
 </mule>
